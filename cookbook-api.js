@@ -43,6 +43,20 @@ async function getFile(e, t) {
   }
   return o;
 }
+async function uploadFile(e, d, t) {
+  try {
+    await storage.bucket(e).upload(t, {
+      gzip: true,
+      destination: d,
+      metadata: {
+        cacheControl: 'no-cache',
+      },
+    });
+    console.log(`${fileName} uploaded to ${bucketName}.`);
+  } catch (error) {
+    console.error('ERROR:', error);
+  }
+}
 function getIdFromPath(path) {
   const id = path.split("/")[2].split("?")[0];
   return id;
@@ -72,7 +86,13 @@ functions.http("recipes", (req, res) => {
       res.send("404");
     }
   } else if (req.method === "POST") {
-    // todo create recipe
+    if (req.path.startsWith("/recipe")) {
+      const id = getIdFromPath(req.path);
+      const recipeJson = req.body;
+      writeJsonToFile(tempPath(), recipeJson)
+        .then((filename) => uploadFile(bucketName, getRecipePath(filename)))
+        .then((_) => res.send(id));
+    }
   } else if (req.method === "PUT") {
     // todo update recipe
   }
@@ -86,21 +106,4 @@ functions.http("recipes", (req, res) => {
 //     .then(filename =>
 //         fs.unlink(filename, () => res.send(recipeId))
 //     )
-// }
-
-//
-// async function uploadFile(fileName) {
-//   try {
-//     await storage.bucket(bucketName).upload(fileName, {
-//       gzip: true,
-//       destination: "recipes",
-//       metadata: {
-//         cacheControl: 'no-cache',
-//       },
-//     });
-//
-//     console.log(`${fileName} uploaded to ${bucketName}.`);
-//   } catch (error) {
-//     console.error('ERROR:', error);
-//   }
 // }
