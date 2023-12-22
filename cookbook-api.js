@@ -90,7 +90,7 @@ functions.http("recipes", (req, res) => {
       const id = getIdFromPath(req.path);
       const recipeJson = req.body;
       writeJsonToFile(tempPath(), recipeJson)
-        .then((filename) => uploadFile(bucketName, getRecipePath(filename)))
+        .then((filename) => uploadFile(bucketName, getRecipePath(id), filename))
         .then((_) => res.send(id));
     }
   } else if (req.method === "PUT") {
