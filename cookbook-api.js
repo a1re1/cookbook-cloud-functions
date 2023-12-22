@@ -2,7 +2,7 @@ const functions = require("@google-cloud/functions-framework");
 const fs = require("fs");
 
 // lib
-const { Storage: Storage } = require("@google-cloud/storage"),
+const { Storage: Storage, TransferManager } = require("@google-cloud/storage"),
   os = require("os"),
   path = require("path"),
   storage = new Storage();
@@ -57,6 +57,10 @@ async function uploadFile(e, d, t) {
     console.error('ERROR:', error);
   }
 }
+async function getFolder(e, t) {
+  const transferManager = new TransferManager(storage.bucket(e));
+  return transferManager.downloadManyFiles(t);
+}
 function getIdFromPath(path) {
   const id = path.split("/")[2].split("?")[0];
   return id;
@@ -80,8 +84,12 @@ functions.http("recipes", (req, res) => {
       } catch (e) {
         res.send("Not Found");
       }
-    } else if (path.startsWith("/preview")) {
-      res.send("preview apis");
+    } else if (path.startsWith("/search")) {
+      getFolder(bucketName, "recipes")
+        .then((files) => { 
+          console.log("files: ", files);
+          res.send(files);
+        });
     } else {
       res.send("404");
     }
@@ -93,17 +101,5 @@ functions.http("recipes", (req, res) => {
         .then((filename) => uploadFile(bucketName, getRecipePath(id), filename))
         .then((_) => res.send(id));
     }
-  } else if (req.method === "PUT") {
-    // todo update recipe
   }
 });
-
-// function updateRecipe(recipeId, recipeJson, res) {
-//   writeJsonToTempFile(recipeJson)
-//     .then(filename =>
-//       uploadFile(filename, recipeId).then(_ => filename)
-//     )
-//     .then(filename =>
-//         fs.unlink(filename, () => res.send(recipeId))
-//     )
-// }
