@@ -89,10 +89,10 @@ functions.http("recipes", (req, res) => {
       getFolder(bucketName, "recipes")
         .then((files) => {
           const idx = [];
-          files.forEach(fileBuf => {
-            let file = dec.decode(fileBuf[0]["data"]);
+          for (let i = 0; i < files.length; i++) {
+            let file = dec.decode(new Uint8Array(files[i][0]));
             idx.push(file);
-          });
+          }
           res.send(JSON.stringify(idx));
         });
     } else {
