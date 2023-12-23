@@ -70,10 +70,11 @@ function getIdFromPath(path) {
 const bucketName = "gs://whitehurst-cook-book";
 const getRecipePath = (recipeId) => `recipes/${recipeId}.json`;
 
+
 functions.http("recipes", (req, res) => {
   if (enableCors(req, res)) return;
   if (req.method === "GET") {
-    const path = req.path;
+    const path = req.path;    
     if (path.startsWith("/recipe")) {
       const id = getIdFromPath(path);
       recipePath = getRecipePath(id);
@@ -94,6 +95,27 @@ functions.http("recipes", (req, res) => {
             idx.push(file);
           }
           res.send(JSON.stringify(idx));
+        });
+    } else if (path.startsWith("/most-recent/")) {
+      const date = new Date(path.split("/")[2] ? path.split("/")[2] : "1970-01-01");
+      console.log("date", date) 
+      let filesMeta = {}
+      bucket.getFilesStream()
+        .on('error', console.error)
+        .on('data', function(file) {
+          if (file.metadata.updated < date 
+            || file.metadata.name.indexOf("recipes/") !== 0 
+            || file.metadata.name == "recipes/"
+          ) {
+            return;
+          }
+          filesMeta[file.metadata.name] = file.metadata.updated;
+        })
+        .on('end', function() {
+          filesMeta = Object.entries(filesMeta).sort((a,b) => {
+            return new Date(b[1]) - new Date(a[1]);
+          });
+          res.send(JSON.stringify({"mostRecentUpdate": filesMeta[0]}));
         });
     } else {
       res.send("404");
