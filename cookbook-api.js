@@ -87,68 +87,12 @@ functions.http("recipes", (req, res) => {
         res.send("Not Found");
       }
     } else if (path.startsWith("/search")) {
-      const dec = new TextDecoder("utf-8");
-      getFolder("recipes")
-        .then((files) => {
-          const idx = [];
-          for (let i = 0; i < files.length; i++) {
-            let file = dec.decode(new Uint8Array(files[i][0]));
-            idx.push(file);
-          }
-          res.send(JSON.stringify(idx));
-        });
-    } else if (path.startsWith("/most-recent/")) {
-      const date = new Date(path.split("/")[2] ? path.split("/")[2] : "1970-01-01");
-      let filesMeta = {}
-      bucket.getFilesStream()
-        .on('error', console.error)
-        .on('data', function(file) {
-          if (new Date(file.metadata.updated) < date 
-            || file.metadata.name.indexOf("recipes/") !== 0 
-            || file.metadata.name == "recipes/"
-          ) {
-            return;
-          }
-          filesMeta[file.metadata.name] = file.metadata.updated;
-        })
-        .on('end', function() {
-          filesMeta = Object.entries(filesMeta).sort((a,b) => {
-            return new Date(b[1]) - new Date(a[1]);
-          });
-          res.send(JSON.stringify({"mostRecentUpdate": filesMeta[0]}));
-        });
-    } else if (path.startsWith("/all-recipes-older-than/")) {
-      const date = new Date(path.split("/")[2] ? path.split("/")[2] : "1970-01-01");
-      let filesMeta = {}
-      const dec = new TextDecoder("utf-8");
-      bucket.getFilesStream()
-        .on('error', console.error)
-        .on('data', function(file) {
-          if (new Date(file.metadata.updated) < date 
-            || file.metadata.name.indexOf("recipes/") !== 0 
-            || file.metadata.name == "recipes/"
-          ) {
-            return;
-          }
-          filesMeta[file.metadata.name] = file.metadata.updated;
-        })
-        .on('end', function() {
-          let fileNames = Object.entries(filesMeta);
-          // extract file names
-          fileNames = fileNames.map((file) => {
-            return file[0];
-          });
-
-          getFolder(fileNames)
-          .then((files) => {
-            const idx = [];
-            for (let i = 0; i < files.length; i++) {
-              let file = dec.decode(new Uint8Array(files[i][0]));
-              idx.push(file);
-            }
-            res.send(JSON.stringify(idx));
-          });
-        });
+      fetchCache()
+        .then((temp) => fs.readFileSync(temp, "utf8"))
+        .then((file) => res.send(file));
+    } else if (path.startsWith("/rebuild-cache/")) {
+      rebuildSearchIdxCache()
+        .then((_) => res.send("ok"));
     } else {
       res.send("404");
     }
@@ -164,3 +108,23 @@ functions.http("recipes", (req, res) => {
     res.send("404");
   }
 });
+
+function fetchCache() {
+  return getFile(bucketName, "searchIdx-cache.json");
+}
+
+function rebuildSearchIdxCache() {
+  const dec = new TextDecoder("utf-8");
+  return getFolder("recipes")
+    .then((files) => {
+      const idx = [];
+      for (let i = 0; i < files.length; i++) {
+        let file = dec.decode(new Uint8Array(files[i][0]));
+        idx.push(file);
+      }
+      return idx;
+    }).then((idx) => {
+      return writeJsonToFile(tempPath(), idx)
+        .then((filename) => uploadFile(bucketName, "searchIdx-cache.json", filename));
+    });;
+}
