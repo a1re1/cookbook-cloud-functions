@@ -85,10 +85,15 @@ functions.http("recipes", (req, res) => {
         res.send("Not Found");
       }
     } else if (path.startsWith("/search")) {
+      const dec = new TextDecoder("utf-8");
       getFolder(bucketName, "recipes")
-        .then((files) => { 
-          console.log("files: ", files);
-          res.send(files);
+        .then((files) => {
+          const idx = [];
+          files.forEach(fileBuf => {
+            let file = dec.decode(fileBuf[0]["data"]);
+            idx.push(file);
+          });
+          res.send(JSON.stringify(idx));
         });
     } else {
       res.send("404");
@@ -101,5 +106,7 @@ functions.http("recipes", (req, res) => {
         .then((filename) => uploadFile(bucketName, getRecipePath(id), filename))
         .then((_) => res.send(id));
     }
+  } else {
+    res.send("404");
   }
 });
